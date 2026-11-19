@@ -1,6 +1,6 @@
 # Cloudflare Gateway Adblock Updater
 # Author: SeriousHoax
-# GitHub: https://github.com/SeriousHoax
+# GitHub: https://github.com/WillscHee
 # License: MIT
 
 import requests
@@ -55,17 +55,23 @@ session.headers.update(headers)
 # Blocklists configuration with explicit priorities
 # Priority order (lower number = higher priority):
 # 1-9999: Reserved for custom policies (Allow Rules, Content Blocking, etc.)
-# 10000+: Hagezi filters (ordered by importance)
+# 50000+: Hagezi filters (ordered by importance)
 blocklists: List[Dict[str, str]] = [
     {
         "name": "Hagezi Pro",
-        "url": "https://hagezi-mirror.dnsbunker.org/wildcard/pro-onlydomains.txt",
-        "backup_url1": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro-onlydomains.txt",
-        "backup_url2": "https://gitlab.com/hagezi/mirror/-/raw/main/dns-blocklists/wildcard/pro-onlydomains.txt",
-        "backup_url3": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro-onlydomains.txt",
-        "priority": 10000
+        "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro-onlydomains.txt",
+        "backup_url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro-onlydomains.txt",
+        "priority": 50000  
+    },
+    {
+        # AWAvenue Ads Rule (https://github.com/TG-Twilight/AWAvenue-Ads-Rule)
+        "name": "AWAvenue Ads",
+        "url": "https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-hosts-No.Unwelcome.txt",
+        "backup_url": "https://gcore.jsdelivr.net/gh/TG-Twilight/AWAvenue-Ads-Rule@main/Filters/AWAvenue-Ads-Rule-hosts-No.Unwelcome.txt",
+         "priority": 50001
     }
 ]
+
 
 # Version tracking functions
 def extract_version_from_description(description: str) -> Optional[str]:
@@ -88,11 +94,12 @@ def load_versions_from_policies(cached_rules: List[Dict]) -> Dict[str, str]:
     Returns: dict mapping filter_name -> version
     """
     versions = {}
+    managed_names = {bl['name'] for bl in blocklists}
     
     for rule in cached_rules:
         rule_name = rule.get('name', '')
-        # Check if this is a Hagezi policy (starts with "Hagezi")
-        if rule_name.startswith('Hagezi'):
+        # Check if this is one of our managed policies
+        if rule_name in managed_names:
             filter_name = rule_name
             description = rule.get('description', '')
             version = extract_version_from_description(description)
@@ -116,9 +123,9 @@ def build_description_with_version(filter_name: str, list_count: int,
     
     return base_description
 
-def fetch_blocklist_version(url: str, backup_url1: Optional[str], backup_url2: Optional[str], backup_url3: Optional[str], filter_name: str) -> Optional[str]:
+def fetch_blocklist_version(url: str, backup_url: Optional[str], filter_name: str) -> Optional[str]:
     """Fetch blocklist header to extract version using streaming."""
-    for fetch_url in [url, backup_url1, backup_url2, backup_url3]:
+    for fetch_url in [url, backup_url]:
         if fetch_url is None:
             continue
         try:
@@ -133,10 +140,11 @@ def fetch_blocklist_version(url: str, backup_url1: Optional[str], backup_url2: O
                             continue
                         
                         line = line.strip()
-                        if line.startswith('# Version:'):
-                            version = line.replace('# Version:', '').strip()
-                            logger.info(f"  ℹ️ Found version for {filter_name}: {version}")
-                            return version
+                        for prefix in ('# Version:', '! Version:', '!Version:'):
+                            if line.startswith(prefix):
+                                version = line[len(prefix):].strip()
+                                logger.info(f"  ℹ️ Found version for {filter_name}: {version}")
+                                return version
         except Exception as e:
             logger.warning(f"  ⚠️ Error fetching version from {fetch_url}: {e}")
             continue
@@ -163,9 +171,7 @@ def should_update_filter(filter_config: Dict, cached_rules: List[Dict]) -> tuple
     # Fetch current version from blocklist
     current_version = fetch_blocklist_version(
         filter_config['url'],
-        filter_config.get('backup_url1'),
-        filter_config.get('backup_url2'),
-        filter_config.get('backup_url3'),
+        filter_config.get('backup_url'),
         filter_name
     )
     
@@ -326,7 +332,7 @@ async def async_api_request(session: aiohttp.ClientSession, method: str, url: st
                 if response.status == 400 and method.upper() in ('PATCH', 'POST', 'PUT') and attempt < MAX_RETRIES:
                     result_body = await response.json()
                     errors = result_body.get('errors', [])
-                    if any('not found in list' in e.get('message', '') for e in errors):
+                    if all('not found in list' in e.get('message', '') for e in errors) and errors:
                         return {'status': response.status, 'data': result_body}
                     sleep_time = BACKOFF_FACTOR * (2 ** (attempt - 1))
                     logger.warning(f"⚠️ Bad request (400) on {method}. Retry {attempt}/{MAX_RETRIES} in {sleep_time}s...")
@@ -561,7 +567,8 @@ def update_policy_for_filter(filter_config: Dict, final_list_ids: List[str],
             response = api_request('POST', f"{base_url}/rules", policy_payload)
             check_api_response(response, f"creating policy {policy_name}")
             return True
-        except:
+        except Exception as e:
+            logger.error(f"🚫 Failed to create policy {policy_name}: {e}")
             return False
 
 def process_filter_async(filter_config: Dict, cached_lists: List[Dict], 
@@ -569,9 +576,7 @@ def process_filter_async(filter_config: Dict, cached_lists: List[Dict],
     """Process a filter with diff-based updates."""
     filter_name = filter_config["name"]
     primary_url = filter_config["url"]
-    backup_url1 = filter_config.get("backup_url1")
-    backup_url2 = filter_config.get("backup_url2")
-    backup_url3 = filter_config.get("backup_url3")
+    backup_url = filter_config.get("backup_url")
     list_prefix = f"{filter_name.replace(' ', '_')}_List_"
     policy_name = filter_name
 
@@ -582,7 +587,7 @@ def process_filter_async(filter_config: Dict, cached_lists: List[Dict],
     # Fetch blocklist source
     fetched = False
     content = None
-    for url in [primary_url, backup_url1, backup_url2, backup_url3]:
+    for url in [primary_url, backup_url]:
         if url is None:
             continue
         try:
@@ -606,14 +611,20 @@ def process_filter_async(filter_config: Dict, cached_lists: List[Dict],
     for line in lines:
         line = line.strip()
         
-        # Extract version from header
-        if line.startswith('# Version:') and not current_version:
-            current_version = line.replace('# Version:', '').strip()
-            logger.info(f"🚿 Extracted version from blocklist: {current_version}")
+        # Extract version from header (# or ! style)
+        if not current_version:
+            for prefix in ('# Version:', '! Version:', '!Version:'):
+                if line.startswith(prefix):
+                    current_version = line[len(prefix):].strip()
+                    logger.info(f"🚿 Extracted version from blocklist: {current_version}")
+                    break
         
-        # Parse domains
-        if line and not line.startswith('#') and is_valid_domain(line):
-            target_domains.add(line)
+        # Parse domains — skip # and ! comments; for hosts-style lines
+        # ("0.0.0.0 domain" / ":: domain") take the last field
+        if line and not line.startswith(('#', '!')):
+            domain = line.split()[-1]
+            if is_valid_domain(domain):
+                target_domains.add(domain)
 
     logger.info(f"🎯 Target domains: {len(target_domains):,}")
 
@@ -923,6 +934,13 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"🚫 Failed to cache rules/lists: {e}", exc_info=True)
         sys.exit(1)
+
+    for r in cached_rules:
+        logger.info(
+            f"RULE: id={r.get('id')} "
+            f"name={r.get('name')} "
+            f"priority={r.get('priority') or r.get('precedence')}"
+        )
 
     # Process filters with async
     stats = {
