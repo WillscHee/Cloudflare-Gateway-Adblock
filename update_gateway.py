@@ -59,14 +59,14 @@ session.headers.update(headers)
 blocklists: List[Dict[str, str]] = [
     {
         # AdGuard DNS Filter - best for ads/tracking at DNS level
-        "name": "AdGuard DNS",
+        "name": "AdGuard DNS Filter",
         "url": "https://raw.githubusercontent.com/WillscHee/proxy-rules/main/rules/Adguard-dns-filters-onlydomains.txt",
         "backup_url": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
         "priority": 50000
     },
     {
-        # DoH Bypass Whitelist (HaGeZi, minus Apple Private Relay)
-        "name": "DoH Whitelist",
+        # DoH blocklist (HaGeZi, minus Apple Private Relay)
+        "name": "DoH Blocklist",
         "url": "https://raw.githubusercontent.com/WillscHee/proxy-rules/main/rules/DoH.txt",
         "backup_url": "https://hagezi-mirror.dnsbunker.org/wildcard/doh-onlydomains.txt",
         "priority": 50001
