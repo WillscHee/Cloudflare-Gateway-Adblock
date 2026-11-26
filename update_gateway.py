@@ -58,25 +58,19 @@ session.headers.update(headers)
 # 50000+: Hagezi filters (ordered by importance)
 blocklists: List[Dict[str, str]] = [
     {
-        # AdGuard DNS Filter - best for ads/tracking at DNS level
-        "name": "AdGuard DNS",
-        "url": "https://raw.githubusercontent.com/WillscHee/proxy-rules/main/rules/Adguard-dns-filters-onlydomains.txt",
-        "backup_url": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
-        "priority": 50000
-    },
-    {
-        # DoH Bypass Whitelist (HaGeZi, minus Apple Private Relay)
-        "name": "DoH Whitelist",
-        "url": "https://raw.githubusercontent.com/WillscHee/proxy-rules/main/rules/DoH.txt",
-        "backup_url": "https://hagezi-mirror.dnsbunker.org/wildcard/doh-onlydomains.txt",
-        "priority": 50001
+        "name": "Hagezi Pro",
+        "url": "https://hagezi-mirror.dnsbunker.org/wildcard/pro-onlydomains.txt",
+        "backup_url1": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro-onlydomains.txt",
+        "backup_url2": "https://gitlab.com/hagezi/mirror/-/raw/main/dns-blocklists/wildcard/pro-onlydomains.txt",
+        "backup_url3": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/pro-onlydomains.txt",
+        "priority": 50000 
     },
     {
         # AWAvenue Ads Rule (https://github.com/TG-Twilight/AWAvenue-Ads-Rule)
         "name": "AWAvenue Ads",
         "url": "https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-hosts-No.Unwelcome.txt",
         "backup_url": "https://gcore.jsdelivr.net/gh/TG-Twilight/AWAvenue-Ads-Rule@main/Filters/AWAvenue-Ads-Rule-hosts-No.Unwelcome.txt",
-        "priority": 50002
+        "priority": 50001
     }
 ]
 
