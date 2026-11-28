@@ -64,13 +64,7 @@ blocklists: List[Dict[str, str]] = [
         "backup_url": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
         "priority": 50000
     },
-    {
-        # DoH blocklist (HaGeZi, minus Apple Private Relay)
-        "name": "DoH Blocklist",
-        "url": "https://raw.githubusercontent.com/WillscHee/proxy-rules/main/txt/DoH.txt",
-        "backup_url": "https://hagezi-mirror.dnsbunker.org/wildcard/doh-onlydomains.txt",
-        "priority": 50001
-    },
+
     {
         # AWAvenue Ads Rule (https://github.com/TG-Twilight/AWAvenue-Ads-Rule)
         "name": "AWAvenue Ads",
